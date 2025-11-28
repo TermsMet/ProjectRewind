@@ -12,6 +12,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { Server } = require('socket.io');
 const parseM3U = require('./parseM3U');
 
 // -----------------------------------------------------------------------------
@@ -428,10 +429,142 @@ app.get('*', (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// Start server
+// Start server and Socket.IO
 
-app.listen(PORT, () => {
-  console.log(`ProjectRewind backend (Express) listening on http://localhost:${PORT}`);
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+
+// Per-channel chat history storage
+const chatRooms = {}; // { roomName: [{id, user, text, timestamp}] }
+const mutedUsers = {}; // { username: { until: timestamp, room: 'all' or roomName } }
+let messageIdCounter = 0;
+
+io.on('connection', (socket) => {
+  let currentRoom = null;
+  let username = null;
+
+  socket.on('join-room', ({ room, user }) => {
+    // Leave previous room if any
+    if (currentRoom) {
+      socket.leave(currentRoom);
+    }
+    currentRoom = room;
+    username = user;
+    socket.join(room);
+    
+    // Initialize room history if not exists
+    if (!chatRooms[room]) {
+      chatRooms[room] = [];
+    }
+    
+    // Send room history to the joining user
+    socket.emit('chat-history', chatRooms[room]);
+    
+    // Send current mute status
+    if (mutedUsers[user]) {
+      const muteData = mutedUsers[user];
+      if (muteData.room === 'all' || muteData.room === room) {
+        socket.emit('mute-status', { 
+          muted: true, 
+          until: muteData.until,
+          room: muteData.room 
+        });
+      }
+    }
+  });
+
+  socket.on('chat-message', ({ room, user, text }) => {
+    if (!room || !chatRooms[room]) return;
+    
+    // Check if user is muted
+    if (mutedUsers[user.username]) {
+      const muteData = mutedUsers[user.username];
+      if (muteData.room === 'all' || muteData.room === room) {
+        if (Date.now() < muteData.until) {
+          socket.emit('mute-error', { 
+            message: 'You are muted',
+            until: muteData.until 
+          });
+          return;
+        } else {
+          // Mute expired, remove it
+          delete mutedUsers[user.username];
+        }
+      }
+    }
+    
+    const message = {
+      id: `msg-${++messageIdCounter}`,
+      user,
+      text,
+      timestamp: Date.now()
+    };
+    
+    // Store message in room history
+    chatRooms[room].push(message);
+    
+    // Keep only last 100 messages per room
+    if (chatRooms[room].length > 100) {
+      chatRooms[room].shift();
+    }
+    
+    // Broadcast to all users in the room
+    io.to(room).emit('chat-message', message);
+  });
+
+  socket.on('mute-user', ({ room, targetUser, duration, moderator }) => {
+    // Verify moderator has permission (in production, check against user database)
+    const until = Date.now() + (duration * 60000); // duration in minutes
+    mutedUsers[targetUser] = { until, room };
+    
+    // Notify all users in the room
+    io.to(room).emit('user-muted', { 
+      username: targetUser, 
+      until,
+      moderator: moderator.username 
+    });
+  });
+
+  socket.on('unmute-user', ({ room, targetUser, moderator }) => {
+    delete mutedUsers[targetUser];
+    
+    // Notify all users in the room
+    io.to(room).emit('user-unmuted', { 
+      username: targetUser,
+      moderator: moderator.username 
+    });
+  });
+
+  socket.on('delete-message', ({ room, messageId, moderator }) => {
+    if (!chatRooms[room]) return;
+    
+    // Find and remove the message
+    const index = chatRooms[room].findIndex(m => m.id === messageId);
+    if (index !== -1) {
+      chatRooms[room].splice(index, 1);
+      
+      // Notify all users in the room
+      io.to(room).emit('message-deleted', { 
+        messageId,
+        moderator: moderator.username 
+      });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    if (currentRoom) {
+      socket.leave(currentRoom);
+    }
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`ProjectRewind backend (Express + Socket.IO) listening on http://localhost:${PORT}`);
   if (defaultAdminPassword) {
     console.log(`Default admin password: ${defaultAdminPassword}`);
   }

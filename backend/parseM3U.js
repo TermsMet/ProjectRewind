@@ -40,6 +40,7 @@ function parseM3U(m3uText) {
         name: attrs['tvg-name'] || name || 'Unknown Channel',
         group: attrs['group-title'] || null,
         logo: attrs['tvg-logo'] || null,
+        tvgId: attrs['tvg-id'] || null,
         url: urlLine || ''
       };
       channels.push(channel);

@@ -3,9 +3,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Copy package files first for better caching
+COPY backend/package*.json ./backend/
+
 # Install backend dependencies
-COPY backend/package.json ./backend/package.json
-RUN npm install --prefix ./backend
+RUN cd backend && npm install
 
 # Copy source files
 COPY backend ./backend

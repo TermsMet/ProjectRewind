@@ -1,0 +1,39 @@
+/* ADD THIS CODE BLOCK TO frontend/main.js MANUALLY */
+
+// =============================================================================
+// 1. REPLACE toggleChatPanel function (around line 504)
+// =============================================================================
+// OLD:
+/*
+function toggleChatPanel() {
+  if (chatPanel.style.display === 'none' || chatPanel.style.display === '') {
+    chatPanel.style.display = 'flex';
+  } else {
+    chatPanel.style.display = 'none';
+  }
+}
+*/
+
+// NEW:
+function toggleChatPanel() {
+  chatPanel.classList.toggle('chat-open');
+  if (chatPanel.classList.contains('chat-open')) {
+    chatInput.focus();
+  }
+}
+
+// =============================================================================
+// 2. ADD to end of playChannel function (around line 1319, before closing })
+// =============================================================================
+// ADD THIS LINE before the closing brace of playChannel():
+  joinChannelRoom(index);
+
+// =============================================================================
+// 3. ADD after initAuth() and startClock() (around line 1728, end of file)
+// =============================================================================
+// ADD THIS BLOCK:
+setTimeout(() => {
+  if (getCurrentUser()) {
+    initializeChat();
+  }
+}, 1000);

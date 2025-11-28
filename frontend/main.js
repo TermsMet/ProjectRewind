@@ -17,6 +17,7 @@ const currentDateEl = document.getElementById('current-date');
 const timeRangeEl = document.getElementById('time-range');
 const ratingEl = document.getElementById('rating');
 const descriptionEl = document.getElementById('description-text');
+const descriptionBar = document.getElementById('description');
 const timelineEl = document.getElementById('timeline');
 const gridEl = document.getElementById('program-grid');
 const legendLeftEl = document.querySelector('#legend .legend-left');
@@ -96,27 +97,153 @@ const chatSendBtn = document.getElementById('chat-send');
 // Simple emoji picker: a small row of buttons that insert emojis into the chat input.
 const emojiBar = document.getElementById('chat-emoji-bar');
 if (emojiBar && chatInput) {
-  const emojis = ['😀','😂','😍','👍','🔥','😎','🤔','🙌'];
+  const emojis = [
+    { name: 'courage-scream', file: 'courage-scream.png' },
+    { name: 'dexter-omelette', file: 'dexter-omelette.png' },
+    { name: 'plank-cry', file: 'plank-cry.png' },
+    { name: 'him-evil', file: 'him-evil.png' },
+    { name: 'grim-billy', file: 'grim-billy.png' },
+    { name: 'father-silhouette', file: 'father-silhouette.png' },
+    { name: 'johnny-bravo', file: 'johnny-bravo.png' },
+    { name: 'mojo-jojo', file: 'mojo-jojo.png' },
+    { name: 'chicken-cow', file: 'chicken-cow.png' },
+    { name: 'scooby-scared', file: 'scooby-scared.png' },
+    { name: 'powerpuff-fight', file: 'powerpuff-fight.png' },
+    { name: 'ed-eddy-roll', file: 'ed-eddy-roll.png' }
+  ];
   emojis.forEach((emoji) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'emoji-btn';
-    btn.textContent = emoji;
+    const img = document.createElement('img');
+    img.src = `/assets/emojis/${emoji.file}`;
+    img.alt = emoji.name;
+    img.style.width = '36px';
+    img.style.height = '36px';
+    img.style.display = 'block';
+    btn.appendChild(img);
     btn.addEventListener('click', () => {
-      chatInput.value = chatInput.value + emoji;
+      chatInput.value = chatInput.value + ` <img src="/assets/emojis/${emoji.file}" alt="${emoji.name}" class="chat-emoji"> `;
       chatInput.focus();
     });
     emojiBar.appendChild(btn);
   });
 }
 
-// In-memory chat and user state
-let chatMessages = [];
-let mutedUsers = {};
-// spoofAlias feature removed for simplified chat
-// let spoofAlias = null;
+// Socket.IO client for per-channel chat
+let socket = null;
+let currentChatRoom = null;
+let userMuteStatus = { muted: false, until: 0, room: null };
 
-// The currently authenticated user. This is populated after
+// Initialize Socket.IO connection
+function initializeChat() {
+  if (socket) return; // Already initialized
+  
+  console.log('[Chat] Initializing Socket.IO connection...');
+  socket = io();
+  
+  socket.on('connect', () => {
+    console.log('[Chat] Socket.IO connected, socket.id:', socket.id);
+    // Join current channel room if there is one
+    if (currentChannelIndex !== null) {
+      joinChannelRoom(currentChannelIndex);
+    }
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('[Chat] Socket.IO disconnected');
+  });
+  
+  socket.on('connect_error', (error) => {
+    console.error('[Chat] Socket.IO connection error:', error);
+  });
+  
+  socket.on('chat-history', (history) => {
+    console.log('[Chat] Received chat history:', history.length, 'messages');
+    chatMessagesEl.innerHTML = '';
+    history.forEach(msg => {
+      appendChatMessage(msg.user, msg.text, msg.id, msg.timestamp);
+    });
+  });
+  
+  socket.on('chat-message', (msg) => {
+    appendChatMessage(msg.user, msg.text, msg.id, msg.timestamp);
+  });
+  
+  socket.on('mute-status', (status) => {
+    userMuteStatus = status;
+    if (status.muted) {
+      const remaining = Math.ceil((status.until - Date.now()) / 60000);
+      showSystemMessage(`You are muted for ${remaining} more minute(s)`);
+    }
+  });
+  
+  socket.on('mute-error', (data) => {
+    const remaining = Math.ceil((data.until - Date.now()) / 60000);
+    showSystemMessage(`You are muted for ${remaining} more minute(s)`);
+  });
+  
+  socket.on('user-muted', (data) => {
+    const duration = Math.ceil((data.until - Date.now()) / 60000);
+    showSystemMessage(`${data.username} has been muted for ${duration} minute(s) by ${data.moderator}`);
+  });
+  
+  socket.on('user-unmuted', (data) => {
+    showSystemMessage(`${data.username} has been unmuted by ${data.moderator}`);
+    if (getCurrentUser()?.username === data.username) {
+      userMuteStatus = { muted: false, until: 0, room: null };
+    }
+  });
+  
+  socket.on('message-deleted', (data) => {
+    const msgEl = document.querySelector(`[data-message-id="${data.messageId}"]`);
+    if (msgEl) {
+      msgEl.remove();
+    }
+  });
+}
+
+function showSystemMessage(text) {
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message system';
+  msgDiv.textContent = text;
+  chatMessagesEl.appendChild(msgDiv);
+  chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+}
+
+// Join a channel's chat room based on channel index
+function joinChannelRoom(channelIndex) {
+  if (!socket || !socket.connected) {
+    console.warn('[Chat] Cannot join room - socket not connected');
+    return;
+  }
+  
+  const channel = channels[channelIndex];
+  if (!channel) return;
+  
+  // Generate room name from tvg-id or sanitized channel name
+  let roomName = channel.tvgId || channel.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  
+  // Don't rejoin if already in this room
+  if (currentChatRoom === roomName) return;
+  
+  const user = getCurrentUser();
+  if (!user) {
+    console.warn('[Chat] Cannot join room - no user');
+    return;
+  }
+  
+  console.log('[Chat] Joining room:', roomName, 'as user:', user.username);
+  
+  // Leave old room and join new room
+  currentChatRoom = roomName;
+  socket.emit('join-room', { 
+    room: roomName, 
+    user: user.username 
+  });
+}
+
+// Join a channel's chat room based on channel index
 // successfully calling the backend /api/auth/me or /api/auth/login.
 let currentUser = null;
 
@@ -432,16 +559,18 @@ async function createUser() {
 
 // Chat functions
 function toggleChatPanel() {
-  if (chatPanel.style.display === 'none' || chatPanel.style.display === '') {
-    chatPanel.style.display = 'flex';
-  } else {
-    chatPanel.style.display = 'none';
+  chatPanel.classList.toggle('chat-open');
+  if (chatPanel.classList.contains('chat-open')) {
+    chatInput.focus();
   }
 }
 
-function appendChatMessage(user, text) {
+function appendChatMessage(user, text, messageId, timestamp) {
   const msgDiv = document.createElement('div');
   msgDiv.className = 'message';
+  if (messageId) {
+    msgDiv.dataset.messageId = messageId;
+  }
   // Assign a random colour to the username if not already assigned
   if (!user.color) {
     const colors = ['#f9719b','#ffd166','#06d6a0','#6792e3','#f9844a','#8e99f3'];
@@ -460,95 +589,101 @@ function appendChatMessage(user, text) {
     msgDiv.appendChild(badge);
   }
   const textSpan = document.createElement('span');
-  textSpan.textContent = `: ${text}`;
+  // Allow HTML for emoji images but sanitize other content
+  textSpan.innerHTML = `: ${text.replace(/<(?!\/?(img)\b)[^>]+>/g, '')}`;
   msgDiv.appendChild(textSpan);
-  // Add mute/spoof buttons visible to moderators/admin
+  
+  // Add delete button for moderators/admin
   const current = getCurrentUser();
-  if (current && (current.role === 'admin' || current.role === 'moderator')) {
-    const controls = document.createElement('span');
-    controls.style.float = 'right';
-    controls.style.marginLeft = '8px';
-    // Mute/unmute button
-    const muteBtn = document.createElement('button');
-    muteBtn.textContent = mutedUsers[user.username] ? 'Unmute' : 'Mute';
-    muteBtn.style.fontSize = '0.7rem';
-    muteBtn.style.marginRight = '4px';
-    muteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (mutedUsers[user.username]) {
-        delete mutedUsers[user.username];
-      } else {
-        mutedUsers[user.username] = true;
+  if (current && (current.role === 'admin' || current.role === 'moderator') && messageId) {
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-msg-btn';
+    deleteBtn.textContent = '×';
+    deleteBtn.title = 'Delete message';
+    deleteBtn.addEventListener('click', () => {
+      if (socket && currentChatRoom) {
+        socket.emit('delete-message', {
+          room: currentChatRoom,
+          messageId: messageId,
+          moderator: { username: current.username }
+        });
       }
-      // Re-render chat to update buttons
-      renderChatMessages();
     });
-    controls.appendChild(muteBtn);
-    // Spoof functionality removed in simplified chat
-    msgDiv.appendChild(controls);
+    msgDiv.appendChild(deleteBtn);
   }
+  
   chatMessagesEl.appendChild(msgDiv);
   // Scroll to bottom
   chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-}
-
-function renderChatMessages() {
-  chatMessagesEl.innerHTML = '';
-  chatMessages.forEach(msg => {
-    appendChatMessage(msg.user, msg.text);
-  });
 }
 
 function handleChatSend() {
   const text = chatInput.value.trim();
   if (!text) return;
   const current = getCurrentUser();
-  if (!current) return;
-
-  // If this user is muted, do not send the message to others. Instead,
-  // show a client-side only notice so they understand why nothing is
-  // happening.
-  if (mutedUsers[current.username]) {
-    chatInput.value = '';
-    const notice = document.createElement('div');
-    notice.className = 'message system';
-    notice.textContent = `You are currently muted and your message was not sent.`;
-    chatMessagesEl.appendChild(notice);
-    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  if (!current) {
+    console.warn('[Chat] Cannot send message - no user');
     return;
   }
 
   chatInput.value = '';
+  
   // Check for commands
   if (text.startsWith('/')) {
     handleChatCommand(text, current);
     return;
   }
-  // Spoofing disabled in simplified chat
-  const userForMessage = { username: current.username, role: current.role, color: current.color };
-  chatMessages.push({ user: userForMessage, text });
-  appendChatMessage(userForMessage, text);
+  
+  console.log('[Chat] Sending message to room:', currentChatRoom);
+  
+  // Send message via Socket.IO to current room
+  if (socket && currentChatRoom) {
+    const userForMessage = { 
+      username: current.username, 
+      role: current.role, 
+      color: current.color 
+    };
+    socket.emit('chat-message', {
+      room: currentChatRoom,
+      user: userForMessage,
+      text: text
+    });
+  } else {
+    console.warn('[Chat] Cannot send - socket or room not ready. Socket:', !!socket, 'Room:', currentChatRoom);
+  }
 }
 
 function handleChatCommand(cmd, user) {
   const parts = cmd.split(/\s+/);
   const base = parts[0].toLowerCase();
+  
   if (base === '/clear') {
     if (user.role === 'admin' || user.role === 'moderator') {
-      chatMessages = [];
       chatMessagesEl.innerHTML = '';
     }
   } else if (base === '/mute' && parts[1]) {
     if (user.role === 'admin' || user.role === 'moderator') {
       const target = parts[1];
-      mutedUsers[target] = true;
-      renderChatMessages();
+      const duration = parseInt(parts[2]) || 5; // Default 5 minutes
+      if (socket && currentChatRoom) {
+        socket.emit('mute-user', {
+          room: currentChatRoom,
+          targetUser: target,
+          duration: duration,
+          moderator: { username: user.username }
+        });
+      }
     }
   } else if (base === '/unmute' && parts[1]) {
     if (user.role === 'admin' || user.role === 'moderator') {
       const target = parts[1];
-      delete mutedUsers[target];
-      renderChatMessages();
+      if (socket && currentChatRoom) {
+        socket.emit('unmute-user', {
+          room: currentChatRoom,
+          targetUser: target,
+          moderator: { username: user.username }
+        });
+      }
     }
   }
 }
@@ -561,6 +696,8 @@ const volumeRange = document.getElementById('volume-range');
 // they adjust the time window by ±12 hours.
 const scrollBackBtn = document.getElementById('scroll-back');
 const scrollForwardBtn = document.getElementById('scroll-forward');
+const scrollBackHourBtn = document.getElementById('scroll-back-hour');
+const scrollForwardHourBtn = document.getElementById('scroll-forward-hour');
 
 // State
 let channels = [];
@@ -568,12 +705,11 @@ let currentChannelIndex = null;
 let miniVisible = false;
 let miniLocked = false;
 let miniHideTimeout = null;
-// EPG schedule: channel name -> array of programmes sorted by start time
-let epgSchedule = {};
-// Normalised EPG schedule: lower‑case channel names -> programmes list. This allows
-// lookups without worrying about case differences. It is rebuilt each time
-// the EPG is loaded.
-let epgScheduleNormalized = {};
+
+// EPG state
+let epgSchedule = {}; // channel name -> programme list
+let epgScheduleNormalized = {}; // normalized channel name -> programme list
+let epgScheduleByTvgId = {}; // tvg-id -> programme list
 
 // Time window settings: number of hours shown in the grid and slot length (30 mins)
 const windowHours = 2;
@@ -607,7 +743,20 @@ function buildChannelList() {
     row.dataset.index = index;
     const nameEl = document.createElement('div');
     nameEl.classList.add('channel-name');
-    nameEl.textContent = channel.name;
+    // Add channel logo if available
+    if (channel.logo) {
+      const logoImg = document.createElement('img');
+      logoImg.src = channel.logo;
+      logoImg.alt = channel.name;
+      logoImg.style.width = '32px';
+      logoImg.style.height = '32px';
+      logoImg.style.marginRight = '8px';
+      logoImg.style.verticalAlign = 'middle';
+      nameEl.appendChild(logoImg);
+    }
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = channel.name;
+    nameEl.appendChild(nameSpan);
     row.appendChild(nameEl);
     // Placeholder element for programme info (title/episode)
     const infoEl = document.createElement('div');
@@ -637,7 +786,7 @@ function buildMiniChannels() {
     const infoSpan = document.createElement('span');
     infoSpan.className = 'mini-show-info';
     const now = new Date();
-    const prog = findProgrammeForSlot(channel.name, now, new Date(now.getTime() + 1));
+    const prog = findProgrammeForSlot(channel, now, new Date(now.getTime() + 1));
     if (prog) {
       let text = prog.title;
       if (prog.subtitle) text += ` (${prog.subtitle})`;
@@ -725,6 +874,7 @@ function parseEpgXml(xmlString) {
     channelIdToIcon[id] = iconSrc;
   }
   const schedule = {};
+  const scheduleByTvgId = {}; // Map tvg-id to programme list
   // Helper to parse times of the form YYYYMMDDHHMMSS +0000
   function parseTimeStr(str) {
     if (!str) return new Date(NaN);
@@ -735,7 +885,23 @@ function parseEpgXml(xmlString) {
     const hour = parseInt(digits.slice(8, 10));
     const minute = parseInt(digits.slice(10, 12));
     const second = parseInt(digits.slice(12, 14));
-    return new Date(year, month, day, hour, minute, second);
+    
+    // Parse timezone offset (e.g., "+0000", "-0600")
+    let timezoneOffset = 0;
+    const tzMatch = str.match(/([+-])(\d{2})(\d{2})/);
+    if (tzMatch) {
+      const sign = tzMatch[1] === '+' ? 1 : -1;
+      const hours = parseInt(tzMatch[2]);
+      const minutes = parseInt(tzMatch[3]);
+      timezoneOffset = sign * (hours * 60 + minutes); // offset in minutes
+    }
+    
+    // Create date in UTC, then adjust for timezone offset
+    const utcDate = Date.UTC(year, month, day, hour, minute, second);
+    // Convert timezone offset to milliseconds and adjust
+    const localOffset = new Date().getTimezoneOffset(); // local timezone offset in minutes
+    const adjustedTime = utcDate - (timezoneOffset * 60000) + (localOffset * 60000);
+    return new Date(adjustedTime);
   }
   const programmes = xmlDoc.getElementsByTagName('programme');
   for (let i = 0; i < programmes.length; i++) {
@@ -801,12 +967,29 @@ function parseEpgXml(xmlString) {
       end,
       icon
     });
+    // Also store by channel ID for tvg-id matching
+    if (!scheduleByTvgId[channelId]) scheduleByTvgId[channelId] = [];
+    scheduleByTvgId[channelId].push({
+      title,
+      subtitle,
+      desc,
+      rating,
+      season,
+      episodeNumber,
+      start,
+      end,
+      icon
+    });
   }
   // Sort each channel's programmes by start time
   for (const name in schedule) {
     schedule[name].sort((a, b) => a.start - b.start);
   }
-  return schedule;
+  for (const id in scheduleByTvgId) {
+    scheduleByTvgId[id].sort((a, b) => a.start - b.start);
+  }
+  // Return both schedule maps
+  return { schedule, scheduleByTvgId };
 }
 
 /**
@@ -823,7 +1006,9 @@ async function loadEpg() {
     if (!res.ok) throw new Error('Failed to load EPG');
     const xml = await res.text();
     // Parse full schedule
-    epgSchedule = parseEpgXml(xml);
+    const parsed = parseEpgXml(xml);
+    epgSchedule = parsed.schedule;
+    epgScheduleByTvgId = parsed.scheduleByTvgId;
     // Build a normalised lookup (lower‑case channel names → programmes)
     epgScheduleNormalized = {};
     Object.keys(epgSchedule).forEach((name) => {
@@ -838,6 +1023,7 @@ async function loadEpg() {
     console.warn('EPG load failed', err);
     epgSchedule = {};
     epgScheduleNormalized = {};
+    epgScheduleByTvgId = {};
     renderGuide();
     buildMiniChannels();
   }
@@ -930,17 +1116,25 @@ function renderTimeline() {
 /**
  * Find the programme airing on a channel during a specific slot.
  * Returns the programme object or null if none.
+ * Matches by tvg-id first, then falls back to channel name.
  *
- * @param {string} channelName
+ * @param {Object} channel - Channel object with tvgId and name properties
  * @param {Date} slotStart
  * @param {Date} slotEnd
  * @returns {Object|null}
  */
-function findProgrammeForSlot(channelName, slotStart, slotEnd) {
-  // Use normalised schedule so channel name matching is case‑insensitive. If the
-  // normalised lookup fails fall back to the exact key.
-  const nameKey = (channelName && channelName.toLowerCase) ? channelName.toLowerCase() : channelName;
-  const list = epgScheduleNormalized[nameKey] || epgSchedule[channelName] || [];
+function findProgrammeForSlot(channel, slotStart, slotEnd) {
+  let list = [];
+  
+  // Try matching by tvg-id first
+  if (channel.tvgId && epgScheduleByTvgId[channel.tvgId]) {
+    list = epgScheduleByTvgId[channel.tvgId];
+  } else {
+    // Fallback to channel name matching (case-insensitive)
+    const nameKey = (channel.name && channel.name.toLowerCase) ? channel.name.toLowerCase() : channel.name;
+    list = epgScheduleNormalized[nameKey] || epgSchedule[channel.name] || [];
+  }
+  
   for (const prog of list) {
     if (prog.start < slotEnd && prog.end > slotStart) {
       return prog;
@@ -969,7 +1163,7 @@ function renderGrid() {
     for (let i = 0; i < numCols; i++) {
       const slotStart = new Date(timeWindowStart.getTime() + i * halfHourMinutes * 60000);
       const slotEnd = new Date(slotStart.getTime() + halfHourMinutes * 60000);
-      const prog = findProgrammeForSlot(channel.name, slotStart, slotEnd);
+      const prog = findProgrammeForSlot(channel, slotStart, slotEnd);
       const cell = document.createElement('div');
       cell.className = 'program-cell';
       if (prog) {
@@ -1123,10 +1317,17 @@ function updateShowInfoUI() {
  */
 function updatePlayerInfo() {
   if (currentChannelIndex === null) return;
-  const channelName = channels[currentChannelIndex].name;
+  const channel = channels[currentChannelIndex];
   // Find current programme for now
   const now = new Date();
-  const prog = findProgrammeForSlot(channelName, now, new Date(now.getTime() + 1));
+  const prog = findProgrammeForSlot(channel, now, new Date(now.getTime() + 1));
+  
+  // Update DVR logo to match channel logo
+  let logoSrc = (channel && channel.logo) || 'assets/rewind_logo.png';
+  if (dvrLogoImg) {
+    dvrLogoImg.src = logoSrc;
+  }
+  
   if (prog) {
     // Build a display title including subtitle if present
     let displayTitle = prog.title || '';
@@ -1139,24 +1340,12 @@ function updatePlayerInfo() {
     dvrTitleEl.textContent = displayTitle;
     dvrStartEl.textContent = formatTimeLabel(prog.start);
     dvrEndEl.textContent = formatTimeLabel(prog.end);
-    // Update channel logo in the DVR overlay: prefer programme icon, then channel logo, then fallback
-    const channel = channels[currentChannelIndex];
-    let logoSrc = prog.icon || (channel && channel.logo) || 'assets/rewind_logo.png';
-    if (dvrLogoImg) {
-      dvrLogoImg.src = logoSrc;
-    }
   } else {
     // No programme: show channel name and fallback values
-    showNameEl.textContent = channelName;
-    dvrTitleEl.textContent = channelName;
+    showNameEl.textContent = channel.name;
+    dvrTitleEl.textContent = channel.name;
     dvrStartEl.textContent = '';
     dvrEndEl.textContent = '';
-    // Reset logo to fallback or channel logo if available
-    const channel = channels[currentChannelIndex];
-    let logoSrc = (channel && channel.logo) || 'assets/rewind_logo.png';
-    if (dvrLogoImg) {
-      dvrLogoImg.src = logoSrc;
-    }
   }
 }
 
@@ -1198,10 +1387,15 @@ function playChannel(index) {
 
   // Update displayed programme info immediately
   updatePlayerInfo();
+  
+  // Join the chat room for this channel
+  joinChannelRoom(index);
 }
 
 function showPlayer() {
   playerOverlay.style.display = 'flex';
+  // Hide the description bar when player is active
+  if (descriptionBar) descriptionBar.style.display = 'none';
   // Reset progress bar
   progressBar.style.width = '0%';
   elapsedEl.textContent = '0:00';
@@ -1215,6 +1409,8 @@ function showPlayer() {
 
 function hidePlayer() {
   playerOverlay.style.display = 'none';
+  // Restore description bar
+  if (descriptionBar) descriptionBar.style.display = 'flex';
   if (!video.paused) video.pause();
   if (video.hls) {
     video.hls.destroy();
@@ -1255,9 +1451,9 @@ function startProgressUpdater() {
     if (!video) return;
     // If EPG schedule is available for the current channel use it for progress
     if (currentChannelIndex !== null) {
-      const channelName = channels[currentChannelIndex].name;
+      const channel = channels[currentChannelIndex];
       const now = new Date();
-      const prog = findProgrammeForSlot(channelName, now, new Date(now.getTime() + 1));
+      const prog = findProgrammeForSlot(channel, now, new Date(now.getTime() + 1));
       if (prog) {
         const total = (prog.end.getTime() - prog.start.getTime()) / 1000;
         const elapsed = (now.getTime() - prog.start.getTime()) / 1000;
@@ -1423,7 +1619,6 @@ messageBtn.addEventListener('click', () => {
 lockBtn.addEventListener('click', () => {
   miniLocked = !miniLocked;
   if (miniLocked) {
-    lockBtn.textContent = '🔒';
     lockBtn.classList.add('locked');
     // Cancel any pending hide so the mini guide remains visible
     if (hideMiniGuideTimeout) {
@@ -1432,7 +1627,6 @@ lockBtn.addEventListener('click', () => {
     }
     miniGuide.style.display = 'block';
   } else {
-    lockBtn.textContent = '🔓';
     lockBtn.classList.remove('locked');
     scheduleHideMiniGuide();
   }
@@ -1522,18 +1716,73 @@ miniGuideBtn.addEventListener('click', () => {
 // functions could later manipulate the EPG time window.
 if (scrollBackBtn) {
   scrollBackBtn.addEventListener('click', () => {
-    // Subtract 12 hours from the window start
-    timeWindowStart = new Date(timeWindowStart.getTime() - 12 * 60 * 60 * 1000);
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const newTime = new Date(timeWindowStart.getTime() - 12 * 60 * 60 * 1000);
+    
+    // Don't go back more than 1 week
+    if (newTime < oneWeekAgo) {
+      showMiniMessage('Cannot go back more than 1 week');
+      return;
+    }
+    
+    timeWindowStart = newTime;
     renderGuide();
     showMiniMessage('Scrolled -12 hours');
   });
 }
 if (scrollForwardBtn) {
   scrollForwardBtn.addEventListener('click', () => {
-    // Add 12 hours to the window start
-    timeWindowStart = new Date(timeWindowStart.getTime() + 12 * 60 * 60 * 1000);
+    const now = new Date();
+    const oneWeekForward = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const newTime = new Date(timeWindowStart.getTime() + 12 * 60 * 60 * 1000);
+    
+    // Don't go forward more than 1 week
+    if (newTime > oneWeekForward) {
+      showMiniMessage('Cannot go forward more than 1 week');
+      return;
+    }
+    
+    timeWindowStart = newTime;
     renderGuide();
     showMiniMessage('Scrolled +12 hours');
+  });
+}
+
+// 1-hour navigation buttons
+if (scrollBackHourBtn) {
+  scrollBackHourBtn.addEventListener('click', () => {
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const newTime = new Date(timeWindowStart.getTime() - 1 * 60 * 60 * 1000);
+    
+    // Don't go back more than 1 week
+    if (newTime < oneWeekAgo) {
+      showMiniMessage('Cannot go back more than 1 week');
+      return;
+    }
+    
+    timeWindowStart = newTime;
+    renderGuide();
+    showMiniMessage('Scrolled -1 hour');
+  });
+}
+
+if (scrollForwardHourBtn) {
+  scrollForwardHourBtn.addEventListener('click', () => {
+    const now = new Date();
+    const oneWeekForward = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const newTime = new Date(timeWindowStart.getTime() + 1 * 60 * 60 * 1000);
+    
+    // Don't go forward more than 1 week
+    if (newTime > oneWeekForward) {
+      showMiniMessage('Cannot go forward more than 1 week');
+      return;
+    }
+    
+    timeWindowStart = newTime;
+    renderGuide();
+    showMiniMessage('Scrolled +1 hour');
   });
 }
 
@@ -1607,3 +1856,10 @@ modalBackdrop.addEventListener('click', () => {
 // determine whether to show the login screen or load the guide immediately.
 initAuth();
 startClock();
+
+// Initialize Socket.IO chat after authentication
+setTimeout(() => {
+  if (getCurrentUser()) {
+    initializeChat();
+  }
+}, 1000);

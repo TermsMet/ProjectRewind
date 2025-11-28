@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ProjectRewind Guide</title>
     <link rel="stylesheet" href="style.css" />
+    <!-- Socket.IO client for WebSocket chat -->
+    <script src="/socket.io/socket.io.js"></script>
     <!-- Load hls.js from CDN for streaming HLS playlists -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.10/dist/hls.min.js"></script>
   </head>
@@ -51,8 +53,10 @@
              for time shifting and guide options. -->
         <div id="legend">
           <div class="legend-left">All Channels</div>
+          <button id="scroll-back-hour" class="legend-btn red"><span class="dot"></span>◀ -1hr</button>
           <button id="scroll-back" class="legend-btn red"><span class="dot"></span>-12hrs</button>
           <button id="scroll-forward" class="legend-btn green"><span class="dot"></span>+12hrs</button>
+          <button id="scroll-forward-hour" class="legend-btn green"><span class="dot"></span>+1hr ▶</button>
           <button id="open-options" class="legend-btn yellow"><span class="dot"></span>Guide Options</button>
           <!-- Only visible to users with the Admin role; opens the user management panel -->
           <button id="manage-users-btn" class="legend-btn yellow" style="display:none;"><span class="dot"></span>Manage Users</button>
@@ -89,9 +93,24 @@
     </div>
     <div id="mini-guide">
       <div class="mini-top">
-        <div class="icon" id="mute-btn"><img src="assets/volume_icon.png" alt="Volume" class="icon-img" /></div>
-        <div class="icon" id="message-btn"><img src="assets/message_icon.png" alt="Message" class="icon-img" /></div>
-        <div class="icon" id="lock-btn"><img src="assets/lock_icon.png" alt="Lock" class="icon-img" /></div>
+        <div class="icon" id="mute-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+        </div>
+        <div class="icon" id="message-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <div class="icon" id="lock-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
       </div>
       <div class="mini-arrows">
         <div class="arrow" id="prev-channel">⬆️</div>
