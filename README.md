@@ -76,6 +76,7 @@ backend/     Node server, auth, M3U + XMLTV parsing
 frontend/    HTML, CSS, Vanilla JS
 data/        User database
 
-📄 License
-
-Free for personal use. MIT license recommended (optional).
+📄 Disclaimer
+This project is a fan-made interface, not affiliated with or endorsed by DirecTV.
+The DirecTV-style logo and branding remain trademarks of DirecTV/AT&T, and all rights belong to their respective owners.
+Free for personal use. MIT license
