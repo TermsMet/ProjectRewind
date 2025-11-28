@@ -1,0 +1,13 @@
+{
+  "name": "ersatzrv-backend",
+  "version": "1.0.0",
+  "description": "Backend server for ersatzrv DirecTV style guide app",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2"
+  }
+}

@@ -1,0 +1,1096 @@
+/*
+ * Global Styles for the ersatzrv DirecTV style IPTV guide
+ *
+ * The aim of this stylesheet is to evoke the look and feel of
+ * DirecTV’s classic grid guide. Colors are chosen to mirror the
+ * various shades of blue used in the original interface, while
+ * typography is set to a clean sans serif. Feel free to adjust
+ * the variables below to tweak the appearance.
+ */
+:root {
+  --color-background: #0167a7;
+  --color-highlight: #003e6b;
+  --color-dark: #012f4e;
+  --color-light: #b7d7f4;
+  --color-accent: #fecd0a; /* yellow for options */
+  --color-muted: #8bb8d9;
+  --color-white: #ffffff;
+  --font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  /* Fill unused space around the 4:3 guide with DirecTV blue */
+  background-color: var(--color-dark);
+  color: var(--color-white);
+  overflow: hidden;
+}
+
+/* Wrapper centres the guide container on wide screens and maintains the
+   4:3 aspect ratio. The guide container uses a background image to
+   approximate the classic DirecTV grid. */
+#wrapper {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* Set a maximum size so the guide scales nicely on larger monitors. */
+  width: 96vw;
+  height: 72vw;
+  max-width: 1280px;
+  max-height: 960px;
+  /* If the viewport is too tall, limit by height */
+  height: calc(min(96vw, 72vh));
+  width: calc(min(1280px, calc(4 / 3 * min(96vw, 72vh))));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+#guide-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* Remove the background image to allow the guide to draw directly on the
+     coloured backdrop. The dark blue background colour from the body
+     supplies the overall colour scheme. */
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Header bar */
+#header {
+  flex: 0 0 140px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--color-dark);
+  box-sizing: border-box;
+}
+
+#logo-title {
+  display: flex;
+  align-items: center;
+  flex: 2;
+}
+
+#logo {
+  height: 60px;
+  width: auto;
+}
+
+.show-title {
+  margin-left: 8px;
+  font-size: 1.4rem;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+}
+
+#meta .meta-item {
+  margin: 2px 0;
+}
+
+#preview {
+  flex: 0 0 200px;
+  height: 120px;
+  background: #000;
+  border: 2px solid var(--color-dark);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Description bar */
+#description {
+  flex: 0 0 60px;
+  background: rgba(1, 103, 167, 0.9);
+  color: var(--color-white);
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+#description span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Timeline row */
+#timeline {
+  flex: 0 0 40px;
+  display: grid;
+  grid-auto-rows: 1fr;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--color-white);
+  background: rgba(1, 51, 89, 0.85);
+  border-bottom: 1px solid var(--color-dark);
+  box-sizing: border-box;
+}
+
+#timeline .time-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--color-dark);
+}
+
+#timeline .date-cell {
+  padding-left: 8px;
+  font-weight: bold;
+  border-right: 1px solid var(--color-dark);
+}
+
+/* Program grid */
+#program-grid {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  font-size: 0.85rem;
+  color: var(--color-white);
+}
+
+/* Channel cell */
+.channel-cell {
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  background: rgba(1, 47, 78, 0.9);
+  border-bottom: 1px solid var(--color-background);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Programme cell */
+.program-cell {
+  background: rgba(1, 103, 167, 0.9);
+  border-right: 1px solid var(--color-dark);
+  border-bottom: 1px solid var(--color-dark);
+  padding: 4px 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+/* When hovering over a programme cell, apply a subtle orange glow without
+   shifting the layout. A box-shadow is used instead of altering borders
+   to preserve cell sizing. */
+.program-cell:hover {
+  box-shadow: 0 0 4px 2px rgba(255, 165, 0, 0.6);
+}
+
+.program-cell.highlight {
+  background: rgba(0, 62, 107, 0.9);
+}
+
+/* Legend (bottom bar) */
+#legend {
+  flex: 0 0 36px;
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: rgba(1, 47, 78, 0.9);
+  color: var(--color-white);
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+#legend .legend-left {
+  margin-right: auto;
+  font-weight: bold;
+}
+
+#legend .legend-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+#legend .legend-btn .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+#legend .legend-btn.red .dot {
+  background: #d53030;
+}
+#legend .legend-btn.green .dot {
+  background: #32963b;
+}
+#legend .legend-btn.yellow .dot {
+  background: #fecd0a;
+}
+
+/* Override existing unused classes to avoid conflicts */
+#top-bar, #grid-container, #bottom-bar {
+  display: none;
+}
+
+/* Container for the main guide */
+#guide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 60px;
+  display: flex;
+  flex-direction: column;
+  /* Allow the background image on the body to show through by not
+     specifying a background colour here. */
+  background: transparent;
+  overflow: hidden;
+}
+
+/* Header bar showing current time and options */
+.guide-header {
+  flex: 0 0 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: var(--color-light);
+  color: var(--color-dark);
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.guide-header .title {
+  flex: 1;
+}
+
+.guide-header .options-button {
+  margin-left: auto;
+  cursor: pointer;
+  padding: 4px 8px;
+  background: var(--color-accent);
+  border-radius: 4px;
+  color: var(--color-dark);
+  font-weight: bold;
+}
+
+/*
+ * Authentication and user management styles
+ */
+
+/* Fullscreen login overlay to prevent access until logged in */
+#login-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 60px;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  color: var(--color-white);
+  font-family: var(--font-family);
+}
+
+#login-screen .login-box {
+  background: var(--color-dark);
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  width: 280px;
+  box-sizing: border-box;
+}
+
+#login-screen h2 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+#login-screen label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+}
+
+#login-screen input {
+  width: 100%;
+  padding: 6px;
+  margin-bottom: 12px;
+  border: 1px solid var(--color-light);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+#login-screen button {
+  width: 100%;
+  padding: 8px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  color: var(--color-dark);
+}
+
+#login-screen .error-message {
+  color: #ff6b6b;
+  font-size: 0.75rem;
+  margin-top: 4px;
+}
+
+/* User management modal */
+#user-modal.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-dark);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  width: 360px;
+  z-index: 2100;
+  color: var(--color-white);
+}
+#user-modal h3, #user-modal h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+#user-modal label {
+  display: block;
+  font-size: 0.8rem;
+  margin: 6px 0 2px;
+}
+#user-modal input, #user-modal select {
+  width: 100%;
+  padding: 6px;
+  margin-bottom: 8px;
+  border: 1px solid var(--color-light);
+  border-radius: 4px;
+  box-sizing: border-box;
+  background: var(--color-background);
+  color: var(--color-white);
+}
+#user-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+#user-modal button {
+  padding: 6px 12px;
+  margin-left: 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#user-modal #user-cancel {
+  background: #666;
+  color: var(--color-white);
+}
+#user-modal #user-save {
+  background: var(--color-accent);
+  color: var(--color-dark);
+}
+
+#user-modal #user-list {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+#user-modal #user-list .user-entry {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-background);
+}
+
+/* Chat panel styles */
+#chat-panel {
+  position: fixed;
+  bottom: 60px;
+  right: 0;
+  width: 320px;
+  height: 300px;
+  background: rgba(1, 47, 78, 0.95);
+  border-top-left-radius: 8px;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  z-index: 1500;
+}
+#chat-panel .chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  font-size: 0.8rem;
+}
+#chat-panel .chat-messages .message {
+  margin-bottom: 6px;
+  word-wrap: break-word;
+}
+#chat-panel .chat-messages .message .name {
+  font-weight: bold;
+  margin-right: 4px;
+}
+#chat-panel .chat-messages .message .badge {
+  margin-right: 4px;
+  font-size: 0.7rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: var(--color-muted);
+  color: var(--color-dark);
+}
+#chat-panel .chat-input-row {
+  display: flex;
+  padding: 8px;
+  border-top: 1px solid var(--color-background);
+}
+#chat-panel #chat-input {
+  flex: 1;
+  padding: 6px;
+  border: 1px solid var(--color-light);
+  border-radius: 4px;
+  margin-right: 6px;
+  background: var(--color-background);
+  color: var(--color-white);
+}
+#chat-panel #chat-send {
+  padding: 6px 10px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-dark);
+}
+
+/* Grid container holding channels and times (simplified) */
+.grid-container {
+  flex: 1;
+  display: flex;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Channel list column */
+.channel-list {
+  flex: 0 0 200px;
+  background: var(--color-dark);
+  overflow-y: auto;
+}
+
+.channel-row {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.channel-row:nth-child(odd) {
+  background: var(--color-background);
+}
+
+.channel-row:nth-child(even) {
+  background: var(--color-dark);
+}
+
+.channel-row:hover,
+.channel-row.highlight {
+  background: var(--color-highlight);
+}
+
+.channel-row .channel-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Additional area within a guide row to display the current programme title,
+   episode name and number. This text is small and muted to avoid
+   overpowering the channel name. */
+.channel-row .show-info {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Video player overlay */
+#player-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 60px;
+  background: #000;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Top bar replicating the DirecTV header */
+#top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 80px;
+  padding: 0 20px;
+  /* No explicit background so the body background shows through. */
+  background: transparent;
+  /* Use dark text for elements on the lighter background of the top bar */
+  color: var(--color-dark);
+  box-sizing: border-box;
+}
+
+#top-bar .top-left {
+  display: flex;
+  align-items: center;
+}
+
+#top-bar #logo {
+  height: 60px;
+  width: auto;
+}
+
+#top-bar .guide-label {
+  margin-left: 8px;
+  font-size: 2rem;
+  font-weight: bold;
+  color: rgba(128, 128, 128, 0.7);
+  text-transform: lowercase;
+}
+
+#top-bar .top-middle {
+  flex: 1;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--color-dark);
+}
+
+#top-bar .top-right {
+  width: 300px;
+  height: 180px;
+  background: #000;
+  border: 2px solid var(--color-dark);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#preview-window {
+  width: 100%;
+  height: 100%;
+}
+
+/* Grid container below the top bar. We reuse the original .grid-container for
+   layout but ensure it fills available space beneath the header and above
+   the bottom bar. */
+#grid-container {
+  flex: 1;
+  display: flex;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Bottom bar replicating the DirecTV legend row */
+#bottom-bar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 20px;
+  background: var(--color-dark);
+  color: var(--color-white);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+#bottom-bar #bottom-left {
+  flex: 1;
+  font-weight: bold;
+}
+
+#bottom-bar .bar-btn {
+  border: none;
+  background: transparent;
+  color: var(--color-white);
+  margin-left: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  padding: 4px 8px;
+}
+
+#bottom-bar .bar-btn .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 4px;
+  display: inline-block;
+}
+
+#bottom-bar .bar-btn.red .dot {
+  background: #ff0000;
+}
+
+#bottom-bar .bar-btn.green .dot {
+  background: #00aa00;
+}
+
+#bottom-bar .bar-btn.yellow .dot {
+  background: var(--color-accent);
+}
+
+#player-overlay.fullscreen {
+  /* hide scrollbars while fullscreen */
+  overflow: hidden;
+}
+
+video#player {
+  width: 100%;
+  height: calc(100% - 80px);
+  background: #000;
+  outline: none;
+}
+
+/* DVR style control bar */
+.dvr-controls {
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  background: var(--color-background);
+  position: relative;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+/* left area with logo and elapsed time */
+.dvr-left {
+  display: flex;
+  align-items: center;
+  min-width: 120px;
+  margin-right: 16px;
+}
+
+.dvr-left img {
+  height: 40px;
+  margin-right: 8px;
+}
+
+.dvr-left .elapsed {
+  font-size: 1rem;
+}
+
+/* center area with timeline */
+.dvr-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  color: var(--color-white);
+  font-size: 0.9rem;
+}
+
+.dvr-center .show-name {
+  text-align: center;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.dvr-center .progress {
+  position: relative;
+  height: 10px;
+  background: var(--color-dark);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.dvr-center .progress .progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #ff5722;
+  width: 0;
+}
+
+.dvr-center .time-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+/* right area with play/pause */
+.dvr-right {
+  min-width: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dvr-right button {
+  background: var(--color-light);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--color-dark);
+}
+
+.dvr-right button:hover {
+  background: var(--color-accent);
+}
+
+/* DVR pause/play overlay graphic */
+.dvr-overlay-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 30%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/*
+ * Dynamic DVR overlay displayed when pausing or resuming playback.
+ * This overlay is positioned just above the main control bar and
+ * presents the programme start time on the left, the title (and
+ * episode information) centred, and the end time on the right. It
+ * fades in and out smoothly.
+ */
+.dvr-overlay {
+  position: absolute;
+  bottom: 80px;
+  left: 0;
+  right: 0;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  background: var(--color-background);
+  color: var(--color-white);
+  font-size: 0.9rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 5;
+}
+
+.dvr-overlay.show {
+  opacity: 1;
+}
+
+.dvr-overlay .dvr-start,
+.dvr-overlay .dvr-end {
+  min-width: 70px;
+  text-align: center;
+}
+
+.dvr-overlay .dvr-title {
+  flex: 1;
+  text-align: center;
+  font-weight: bold;
+  padding: 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Mini guide overlay */
+#mini-guide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Use the provided mini guide template as the background */
+  background-image: url('assets/mini_guide_bg.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  color: var(--color-white);
+  display: none;
+  flex-direction: column;
+  z-index: 1500;
+}
+
+/* Volume slider popup in mini guide */
+.volume-popup {
+  position: absolute;
+  top: 32px;
+  right: 8px;
+  background: rgba(1, 47, 78, 0.95);
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: none;
+  z-index: 5;
+}
+.volume-popup input[type="range"] {
+  width: 120px;
+}
+
+/* top row with icons */
+.mini-top {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  height: 48px;
+  background: var(--color-light);
+  color: var(--color-dark);
+  padding: 0 16px;
+}
+
+.mini-top .icon {
+  margin-left: 16px;
+  cursor: pointer;
+  /* When using image icons, font-size doesn't apply */
+  font-size: 0;
+}
+
+/* Style for image icons used in the mini-guide top bar */
+.icon-img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* bottom row with categories */
+.mini-bottom {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  background: var(--color-highlight);
+  padding: 0 16px;
+  font-size: 0.9rem;
+}
+
+.mini-bottom .list-name {
+  flex: 1;
+  font-weight: bold;
+}
+
+.mini-bottom .option {
+  margin-left: 16px;
+  display: flex;
+  align-items: center;
+  color: var(--color-white);
+  cursor: pointer;
+}
+
+.mini-bottom .option .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+.mini-bottom .option.yellow .dot {
+  background: var(--color-accent);
+}
+
+.mini-bottom .option.blue .dot {
+  background: var(--color-light);
+}
+
+.mini-channels {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.mini-channel-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 16px;
+  cursor: pointer;
+}
+.mini-channel-row:hover,
+.mini-channel-row.active {
+  background: var(--color-highlight);
+}
+
+.mini-channel-row .mini-channel-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Programme info in the mini guide list. Shown after the channel name to
+   provide context on what is currently airing. */
+.mini-channel-row .mini-show-info {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Navigation arrows */
+/* Hide the up/down arrow controls to simplify the mini guide UI */
+.mini-arrows {
+  display: none;
+}
+
+.mini-arrows .arrow {
+  font-size: 24px;
+  margin: 0 16px;
+  cursor: pointer;
+}
+
+.mini-message {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-light);
+  color: var(--color-dark);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  display: none;
+}
+
+/* Guide options modal and backdrop */
+#options-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-background);
+  color: var(--color-white);
+  padding: 20px;
+  border-radius: 8px;
+  z-index: 2000;
+  width: 320px;
+  display: none;
+}
+
+#options-modal h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+#options-modal label {
+  font-size: 0.9rem;
+  margin-top: 8px;
+  display: block;
+}
+
+#options-modal input {
+  width: 100%;
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  margin-top: 4px;
+  background: var(--color-dark);
+  color: var(--color-white);
+}
+
+#options-modal .modal-actions {
+  margin-top: 16px;
+  text-align: right;
+}
+
+#options-modal button {
+  background: var(--color-light);
+  color: var(--color-dark);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+#options-modal button:hover {
+  background: var(--color-accent);
+}
+
+#modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 60px;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1900;
+  display: none;
+}
+
+#chat-panel .chat-emoji-bar {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 4px 6px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(0,0,0,0.6);
+  gap: 4px;
+}
+
+#chat-panel .chat-emoji-bar .emoji-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  padding: 2px 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+#chat-panel .chat-emoji-bar .emoji-btn:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+#chat-panel .chat-messages .message.system {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* Lock icon active state to show when the mini guide is locked open */
+.lock-btn.locked {
+  color: #ffcc66;
+  filter: drop-shadow(0 0 4px rgba(255, 204, 102, 0.8));
+}

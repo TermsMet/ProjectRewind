@@ -1,0 +1,12 @@
+{
+  "name": "projectrewind",
+  "version": "1.0.0",
+  "description": "ProjectRewind \u2013 DirecTV\u2011style IPTV guide and player",
+  "scripts": {
+    "start": "node backend/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  projectrewind:
+    build: .
+    container_name: projectrewind
+    ports:
+      - "3000:3000"
+    environment:
+      # Provide your M3U playlist URL here. You can also override this
+      # variable at runtime using docker-compose environment overrides.
+      - M3U_URL=${M3U_URL:-}
+      # Optional: provide an XMLTV EPG file URL. Leave blank if you do not have one.
+      - EPG_URL=${EPG_URL:-}
+      #Admin Password
+      - ADMIN_PASSWORD=RewindAdmin123!
+    volumes:
+      # Mount assets so they can be customised without rebuilding the image
+      - ./frontend/assets:/app/frontend/assets

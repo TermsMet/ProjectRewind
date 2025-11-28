@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ProjectRewind Guide</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Load hls.js from CDN for streaming HLS playlists -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.10/dist/hls.min.js"></script>
+  </head>
+  <body>
+    <!--
+      Wrapper ensures the 4:3 guide remains centred on wide screens. The guide
+      itself is drawn on top of a static background image that evokes the
+      classic DirecTV grid. The surrounding area fills with the dark blue
+      colour defined in the stylesheet.
+    -->
+    <div id="wrapper">
+      <div id="guide-container">
+        <!-- Header shows the current programme title, airing time and rating. A
+             preview window appears on the right where live video can be
+             displayed. -->
+        <div id="header">
+          <div id="logo-title">
+            <!-- Use the updated DirecTV logo with a transparent background. The image is
+                 pulled from our assets folder and contains no white box behind it. -->
+            <!-- Use our provided transparent DirecTV‑style logo -->
+            <img id="logo" src="assets/rewind_logo.png" alt="DirecTV Logo" />
+            <div class="show-title" id="show-title">Guide Loading…</div>
+          </div>
+          <div id="meta">
+            <div id="current-date" class="meta-item">--</div>
+            <div id="time-range" class="meta-item">--</div>
+            <div id="rating" class="meta-item">--</div>
+          </div>
+          <div id="preview">
+            <div id="preview-window"></div>
+          </div>
+        </div>
+        <!-- Description of the selected programme. Long descriptions wrap and
+             remain within the coloured bar. -->
+        <div id="description"><span id="description-text">Select a programme to view details.</span></div>
+        <!-- Timeline row displays times in 30 minute increments across the
+             selected time window. -->
+        <div id="timeline" class="timeline"></div>
+        <!-- Program grid: each row corresponds to a channel; columns represent
+             half‑hour increments. Programme cells span multiple columns if
+             their duration crosses a half‑hour boundary. -->
+        <div id="program-grid" class="program-grid"></div>
+        <!-- Bottom legend shows the All Channels label and coloured buttons
+             for time shifting and guide options. -->
+        <div id="legend">
+          <div class="legend-left">All Channels</div>
+          <button id="scroll-back" class="legend-btn red"><span class="dot"></span>-12hrs</button>
+          <button id="scroll-forward" class="legend-btn green"><span class="dot"></span>+12hrs</button>
+          <button id="open-options" class="legend-btn yellow"><span class="dot"></span>Guide Options</button>
+          <!-- Only visible to users with the Admin role; opens the user management panel -->
+          <button id="manage-users-btn" class="legend-btn yellow" style="display:none;"><span class="dot"></span>Manage Users</button>
+        </div>
+      </div>
+    </div>
+    <div id="player-overlay">
+      <video id="player" playsinline></video>
+      <!-- Dynamic DVR overlay displayed on pause/play showing timestamps and title -->
+      <div class="dvr-overlay" id="dvr-overlay">
+        <div class="dvr-start" id="dvr-start">0:00</div>
+        <div class="dvr-title" id="dvr-title">Show Name</div>
+        <div class="dvr-end" id="dvr-end">0:00</div>
+      </div>
+      <div class="dvr-controls" id="dvr-controls">
+        <div class="dvr-left">
+          <img src="assets/direcTV_logo.png" alt="DirecTV" style="height:40px; width:auto;" />
+          <div class="elapsed" id="elapsed-time">0:00</div>
+        </div>
+        <div class="dvr-center">
+          <div class="show-name" id="show-name">Loading…</div>
+          <div class="progress">
+            <div class="progress-bar" id="progress-bar"></div>
+          </div>
+          <div class="time-labels">
+            <span id="current-position">0:00</span>
+            <span id="duration">0:00</span>
+          </div>
+        </div>
+        <div class="dvr-right">
+          <button id="play-pause-btn">⏸</button>
+        </div>
+      </div>
+    </div>
+    <div id="mini-guide">
+      <div class="mini-top">
+        <div class="icon" id="mute-btn"><img src="assets/volume_icon.png" alt="Volume" class="icon-img" /></div>
+        <div class="icon" id="message-btn"><img src="assets/message_icon.png" alt="Message" class="icon-img" /></div>
+        <div class="icon" id="lock-btn"><img src="assets/lock_icon.png" alt="Lock" class="icon-img" /></div>
+      </div>
+      <div class="mini-arrows">
+        <div class="arrow" id="prev-channel">⬆️</div>
+        <div class="arrow" id="next-channel">⬇️</div>
+      </div>
+      <div class="mini-channels" id="mini-channels"></div>
+      <!-- Volume slider popup hidden by default -->
+      <div id="volume-popup" class="volume-popup">
+        <input id="volume-range" type="range" min="0" max="1" step="0.05" value="1" />
+      </div>
+      <div class="mini-bottom">
+        <div class="list-name">Favorites List: All Channels</div>
+        <div class="option yellow" id="options-mini">
+          <div class="dot"></div>TV Options
+        </div>
+        <div class="option blue" id="mini-guide-btn">
+          <div class="dot"></div>Mini Guide
+        </div>
+      </div>
+      <div class="mini-message" id="mini-message">No messages available</div>
+    </div>
+
+    <!-- Guide options modal -->
+    <div id="options-modal">
+      <h3>Guide Options</h3>
+      <label for="m3u-input">M3U Playlist URL</label>
+      <input id="m3u-input" type="text" placeholder="Enter M3U URL" />
+      <label for="epg-input">EPG XMLTV URL</label>
+      <input id="epg-input" type="text" placeholder="Enter XMLTV URL (optional)" />
+      <div class="modal-actions">
+        <button id="options-cancel">Cancel</button>
+        <button id="options-save">Save</button>
+      </div>
+    </div>
+    <div id="modal-backdrop"></div>
+    <!-- Login screen. This overlay appears when the user is not authenticated. -->
+    <div id="login-screen" class="login-screen" style="display:none;">
+      <div class="login-box">
+        <h2>Sign In</h2>
+        <label for="login-username">Username</label>
+        <input id="login-username" type="text" placeholder="Enter username" />
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" placeholder="Enter password" />
+        <button id="login-button">Log In</button>
+        <div id="login-error" class="error-message" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- User management modal. Only visible to admin roles. Allows creation
+         and editing of user accounts. -->
+    <div id="user-modal" class="modal" style="display:none;">
+      <h3>Manage Users</h3>
+      <div id="user-list"></div>
+      <h4>Create User</h4>
+      <label for="new-username">Username</label>
+      <input id="new-username" type="text" placeholder="Username" />
+      <label for="new-password">Password</label>
+      <input id="new-password" type="password" placeholder="Password" />
+      <label for="new-role">Role</label>
+      <select id="new-role">
+        <option value="user">User</option>
+        <option value="moderator">Moderator</option>
+        <option value="admin">Admin</option>
+      </select>
+      <div class="modal-actions">
+        <button id="user-cancel">Close</button>
+        <button id="user-save">Create</button>
+      </div>
+    </div>
+
+    <!-- Chat panel for the mini guide. This slides out from the mini guide
+         when the message icon is clicked. It includes a scrollable list of
+         messages and an input box with send/command support. -->
+    <div id="chat-panel" class="chat-panel">
+      <div id="chat-messages" class="chat-messages"></div>
+      <div id="chat-emoji-bar" class="chat-emoji-bar"></div>
+      <div class="chat-input-row">
+        <input id="chat-input" type="text" placeholder="Type a message or command…" />
+        <button id="chat-send">Send</button>
+      </div>
+    </div>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
